@@ -1,0 +1,8 @@
+source("scripts/01_load_data.R")
+source("scripts/02_raw_data_check.R")
+source("scripts/03_data_preparation.R")
+source("scripts/04_analysis.R")
+source("scripts/05_regression_analysis.R")
+source("scripts/06_regression_error_analysis.R")
+source("scripts/99_figures.R")
+#source("scripts/999_shiny_app.R")
