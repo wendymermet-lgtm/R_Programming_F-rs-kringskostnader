@@ -69,6 +69,12 @@ p_model_results_summary <- ggplot(plot_data, aes(x = model, y = value, fill = se
   geom_col(position = position_dodge(width = 0.7), width = 0.6) +
   facet_wrap(~ .metric, scales = "free_y") +
   scale_fill_manual(values = c("Train" = "pink", "Test" = "lightblue")) +
+  geom_text(
+    aes(label = round(value, 2)),
+    position = position_dodge(width = 0.7),
+    vjust = -0.3,
+    size = 3
+  ) +
   labs(
     title = "Model Performance: Train vs Test",
     x = "Model",

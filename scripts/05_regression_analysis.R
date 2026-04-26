@@ -12,6 +12,12 @@ df_insurance %>%
   dplyr::select(customer_id, charges) %>%
   head(10)
 
+big_outlier <- df_insurance %>%
+  dplyr::filter(customer_id == "C100063")
+
+big_outlier
+
+  
 df_insurance_clean <- df_insurance %>%
   dplyr::filter(customer_id != "C100063")  
 
@@ -146,7 +152,7 @@ test_summary <- bind_rows(lm_test, rf_test) %>%
   )
 
 
-test_summary 
+print(test_summary)
 
 # Tolkning av modellprestanda:
 

@@ -4,6 +4,7 @@ author: Wendy Mermet
 format: html
 server: shiny
 ---
+
 ```{r setup, include=FALSE}
 library(shiny)
 library(dplyr)
@@ -11,6 +12,8 @@ library(ggplot2)
 library(readr)
 
 df_insurance <- read_csv("df_insurance.csv")
+top_10_error_lm <- read_csv("top_10_error_lm.csv")
+top_10_error_rf <- read_csv("top_10_error_rf.csv")
 ```
 
 ## Syfte
@@ -37,10 +40,17 @@ Efter genomförd träning och testning genomfördes en felanalys för att identi
 
 ### Korrelation mellan variabler och försäkringskostnader
 
+Det ursprungliga datasetet innehåller information om cirka 1100 kunder, där 13 olika variabler har samlats in för varje individ. Vissa kunder har saknade värden: 28 för BMI, 22 för träningsnivå och 20 för antal årliga hälsokontroller.
+
+Vi väljer att ta bort kunder som saknar information om BMI och träningsnivå, eftersom dessa variabler ger viktig information som kan påverka kostnaderna.
+
+Däremot behåller vi kunder som saknar information om antal årliga hälsokontroller och ersätter dessa värden med det mest frekventa värdet. Detta eftersom variabeln bedöms vara mindre viktig, vilket gör att vi kan behålla fler observationer i datasetet för modellering.
+
+Vid analys av kostnader per försäkringstyp kan vi se att datamängden innehåller flera outliers inom standardförsäkringen, och särskilt en extrem outlier.
 
 ![](images/charges_per_plan_type.png)
 
-Vi kan ser att datamängden innehåller en outlier inom standardförsäkringen.
+Vid analys av både numeriska och kategoriska variabler framkommer att ålder, tidigare olyckor, rökstatus, kroniska sjukdomar samt fysisk aktivitetsnivå har störst påverkan på försäkringskostnaderna.
 
 ```{r}
 numeric_vars <- df_insurance %>%
@@ -56,8 +66,7 @@ categorical_vars <- df_insurance %>%
 
 ## Variables VS charges Dashboard
 
-::: {.tabset}
-
+::: tabset
 ### Numeric Features
 
 ```{r}
@@ -97,7 +106,6 @@ sidebarLayout(
   )
 )
 ```
-
 :::
 
 ```{r context="server"}
@@ -161,46 +169,128 @@ output$cat_plot <- renderPlot({
 })
 ```
 
-Vid analys av både numeriska och kategoriska variabler framkommer att ålder, tidigare olyckor, rökstatus, kroniska sjukdomar samt fysisk aktivitetsnivå har störst påverkan på försäkringskostnaderna.
+Som förberedelse inför nästa steg i regressionsanalysen har nya variabler skapats i form av åldersgrupper samt en sammanslagen variabel för tidigare skadehistorik, där olyckor ges större vikt än anspråk.
 
-Som förberedelse inför nästa steg i regressionsanalysen har nya variabler skapats i form av åldersgrupper samt en sammanslagen variabel för tidigare skadehistorik, där olyckor ges större vikt än anspråk. Samtidigt kommer extremvärden samt variabler utan tydlig koppling till kostnaderna (såsom kön, antal barn, region, kund-ID och försäkringstyp) att exkluderas för att förenkla modellen och förbättra dess tolkningsbarhet.
+Samtidigt kommer variabler utan tydlig koppling till kostnaderna (såsom kön, antal barn, region, kund-ID och försäkringstyp) att exkluderas för att förenkla modellen och förbättra dess tolkningsbarhet.
 
 ![](images/top_10_drivers.png)
 
 ------------------------------------------------------------------------
 
-### Regression analysen
+### Regressionsanalys
+
+Vi har valt att använda två modeller, Random Forest och linjär regression, för att träna och utvärdera deras förmåga att förutsäga försäkringskostnader (charges) baserat på de viktigaste variablerna som identifierades i föregående steg: BMI, rökstatus, kronisk sjukdom, träningsnivå, antal hälsokontroller, åldersgrupp och tidigare riskpoäng.
+
+Datamängden har delats upp i 80 % träningsdata och 20 % testdata. Modellerna har tränats med hjälp av 5-folds Cross Validation för att säkerställa en stabil och tillförlitlig utvärdering av deras prestanda.
 
 ![](images/model_results_summary.png)
 
-Linjär regression presterar något bättre på träningsdatan (lägre RMSE och högre R²), vilket indikerar en starkare anpassning till träningsdatasetet. På testdatan visar dock Random Forest en marginellt bättre prestanda (lägre RMSE och högre R²), vilket tyder på bättre generaliseringsförmåga till tidigare osedd data.
+Resultaten visar att **linjär regression** presterar något bättre än **Random Forest** på testdatan. Detta syns genom att linjär regression har ett lägre RMSE-värde (2428 jämfört med 2512), vilket innebär att modellens prediktioner i genomsnitt ligger närmare de faktiska värdena. Samtidigt har linjär regression ett något högre R²-värde (0,707 jämfört med 0,693), vilket indikerar att den förklarar en större andel av variationen i datan.
 
-Det lilla gapet mellan tränings- och testresultat för båda modellerna indikerar att ingen större överanpassning förekommer, även om linjär regression verkar anpassa sig något mer till träningsdatan.
+Skillnaderna mellan modellerna är dock relativt små, vilket tyder på att båda modellerna presterar på en liknande nivå. Trots att Random Forest är en mer komplex modell, verkar den i detta fall inte ge någon tydlig förbättring jämfört med den enklare linjära modellen. Detta kan tyda på att sambanden i datan till stor del är linjära eller att datasetet inte är tillräckligt stort/komplext för att dra full nytta av en mer avancerad modell.
 
-Sammantaget presterar båda modellerna likvärdigt och förklarar cirka 70–73 % av variationen i försäkringskostnaderna, där Random Forest har ett svagt övertag i prediktiv förmåga.
-
-Linjär regression fungerar som en stabil och lättkommunicerad baslinje. Tillsammans ger modellerna en bra balans mellan tolkbarhet och prediktiv förmåga.
+Sammanfattningsvis framstår linjär regression som det något bättre och mer effektiva valet i detta fall
 
 ------------------------------------------------------------------------
 
 ### Residual anaylsen
 
+Här är din mening översatt och förbättrad till svenska:
+
+För att förbättra modellernas prediktioner av försäkringskostnader (charges) har vi analyserat residualerna samt de största prediktionsfelen (de värsta prediktionerna).
+
 ![](images/linear_regression_residual_plot.png)
 
 ![](images/random_forest_residual_plot.png)
 
+Resultaten visar att både Random Forest- och den linjära modellen ger relativt liknande prediktioner, men att felvariationerna skiljer sig något mellan modellerna. Random Forest har i vissa fall mycket små residualer (nära noll), vilket tyder på att modellen kan träffa enskilda observationer mycket väl. Samtidigt förekommer även större avvikelser, vilket visar att modellen inte är konsekvent bättre i alla fall.
+
+Den linjära modellen uppvisar något mer jämna fel (residualer), men kan samtidigt ha större avvikelser för vissa observationer. Detta tyder på att den är mer stabil men mindre flexibel än Random Forest.
+
+Sammantaget bekräftar detta att skillnaderna mellan modellerna är relativt små: Random Forest kan fånga vissa komplexa mönster bättre, medan linjär regression ger mer konsekventa och stabila prediktioner över hela datamängden.
+
+```{r}
+#| echo: false
+
+print(top_10_error_lm)
+
+```
+
+Här är en kort och tydlig tolkning:
+
+Den linjära modellen missar främst extrema eller komplexa fall, där kostnaderna är ovanligt höga eller låga. I tabellen syns att modellen ofta underskattar höga kostnader (stora positiva residualer) och ibland överskattar låga kostnader. Detta tyder på att modellen inte fullt fångar icke-linjära samband eller interaktioner, särskilt för grupper som äldre personer eller individer med kroniska sjukdomar.
+
+För att förbättra modellen kan man:
+
+-   Lägga till interaktionstermer (t.ex. mellan ålder och kronisk sjukdom eller BMI)
+-   Testa icke-linjära transformationer av variabler
+-   Eller använda en mer flexibel modell, som t.ex. Random Forest eller boosting
+
+Sammanfattningsvis saknar modellen flexibilitet för att hantera mer komplexa mönster i datan.
+
+```{r}
+#| echo: false
+
+print(top_10_error_rf)
+
+```
+
+Random Forest-modellen missar också främst extrema kostnadsfall, särskilt där de faktiska kostnaderna är mycket höga. Precis som för den linjära modellen tenderar den att underskatta höga värden och ibland överskatta låga värden. Detta tyder på att modellen har svårt att fullt ut fånga de mest kostnadsdrivande faktorerna.
+
+Trots att Random Forest är mer flexibel verkar den här sakna tillräcklig information för att förklara variationen i dessa extrema fall, exempelvis saknas viktiga variabler eller mer detaljerad riskinformation (t.ex. sjukdomsgrad eller fler hälsorelaterade faktorer).
+
+För att förbättra modellen kan man:
+
+-   Lägga till mer informativa variabler (t.ex. mer detaljerad hälsodata)
+-   Justera modellens parametrar (hyperparameter tuning)
+-   Testa mer avancerade modeller som boosting
+
+Sammanfattningsvis är problemet mindre kopplat till modellens flexibilitet och mer till att viktig information saknas i datan.
+
 Den mest intressanta observationen är rad 1 — en ung icke-rökare med lågt BMI (18,2), riskpoäng 0 och försäkringskostnader på 16 059. Båda modellerna missar denna observation kraftigt (ca 10–12k fel), eftersom inga av de tillgängliga variablerna förklarar utfallet. Detta är sannolikt en extrem observation med en oupptäckt drivande faktor, exempelvis ett engångsbesök, en olycka eller en diagnos som inte fångas i datamängden.
-
-De två negativa felen (där modellerna överskattar kostnaderna) är också informativa. Rad 3 i linjär regression och rad 7 i Random Forest gäller samma individ — en rökare med måttligt BMI och riskpoäng 2 som endast genererade 8 967 i kostnader. Detta tyder på att rökare med vissa mellanliggande profiler i genomsnitt kostar mindre än modellen förutspår, vilket indikerar att rökningseffekten sannolikt övervärderas för denna delgrupp.
-
-Utöver detta syns ett tydligt mönster av systematisk underskattning av patienter med höga kostnader, vilket pekar på saknade interaktioner mellan rökstatus, kroniska sjukdomar och BMI i modellen.
 
 ------------------------------------------------------------------------
 
-## Slutsatser & Begränsningar
+## Sammanfattning av analysen
 
-Det är definitivt möjligt att använda modeller för att prediktera framtida försäkringskostnader, eftersom det finns tydliga mönster i den tillgängliga datan som modellerna kan utnyttja. Modellerna kan förklara cirka 70–73 % av variationen i försäkringskostnaderna.
+Syftet med projektet har varit att analysera vilka faktorer som påverkar försäkringskostnader samt att utveckla modeller som kan förutsäga dessa kostnader på ett så träffsäkert sätt som möjligt. Genom explorativ dataanalys identifierades att variabler som BMI, rökstatus, kroniska sjukdomar, ålder och tidigare riskpoäng har störst påverkan på kostnaderna.
 
-Samtidigt kan extremvärden (outliers) påverka resultaten kraftigt utan att det alltid finns en tydlig förklaring. Därför rekommenderas att mer detaljerad data samlas in för dessa observationer, exempelvis medicinska händelser eller engångskostnader som inte fångas i nuvarande variabler. Nästa steg bör även inkludera vidare förbättring av modellens feature engineering samt test av fler modelltyper för att undersöka om prediktionsförmågan kan förbättras ytterligare.
+Datasetet innehöll vissa saknade värden och outliers som hanterades genom en kombination av borttagning och imputering, beroende på variabelns betydelse för kostnaden. Detta gjorde det möjligt att behålla en så stor och relevant datamängd som möjligt samtidigt som datakvaliteten förbättrades.
 
-En potentiell risk är att modellen överskattar eller underskattar kostnader för specifika kundgrupper, särskilt där viktiga interaktioner mellan variabler saknas i datan. Det är därför viktigt att kontinuerligt validera modellen mot ny data och säkerställa att den inte används som enda beslutsunderlag i prissättning, utan som ett stöd i kombination med expertbedömning.
+Två regressionsmodeller, linjär regression och Random Forest, tränades och utvärderades med 5-fold cross validation. Resultaten visade att modellerna presterar på en relativt lik nivå, där linjär regression marginellt överträffade Random Forest i både RMSE och R². Detta tyder på att sambanden i datan till stor del är linjära, men också att vissa mer komplexa mönster förekommer.
+
+Residualanalysen visade att båda modellerna har störst svårigheter med extrema observationer, där kostnaderna är mycket höga eller mycket låga. Detta indikerar att viktiga förklarande faktorer saknas i datan eller att relationerna mellan variablerna är mer komplexa än vad modellerna fullt fångar. Särskilt rökstatus, ålder och sjukdomsstatus är starka drivande faktorer, men förklarar inte alla avvikelser.
+
+## Nästa steg för att nå målet
+
+För att förbättra modellernas träffsäkerhet och komma närmare en användbar modell för prissättning bör följande steg genomföras:
+
+1. Förbättra feature engineering
+-    Skapa fler interaktioner (t.ex. ålder × kronisk sjukdom, BMI × rökning)
+-    Testa icke-linjära transformationer av viktiga variabler
+-    Förfina riskvariabeln ytterligare (mer detaljerad riskprofil)
+
+2. Hantera extremvärden mer systematiskt
+-    Separat analys av outliers (t.ex. segmentmodellering)
+-    Log-transformera target (charges) för att minska skevhet
+-    Testa robusta modeller som är mindre känsliga för extrema värden
+
+3. Modellutveckling
+-    Hyperparameter-tuning för Random Forest
+-    Testa mer avancerade modeller som Gradient Boosting (t.ex. XGBoost eller LightGBM)
+-    Jämföra med regulariserade modeller (Ridge/Lasso)
+
+4. Databearbetning och databerikning
+-    Undersöka om viktiga förklarande variabler saknas (t.ex. allvarlighetsgrad av sjukdom, antal diagnoser)
+-    Försöka komplettera datasetet med mer granular hälsodata .
+ 
+ 
+ ------------------------------------------------------------------------
+
+## Självreflektion
+
+Jag tycker att jag gjorde ett bra arbete med att strukturera analysen och förbättra läsbarheten genom att använda nya funktioner. Jag har uppfyllt kraven genom att analysera datat, använda visualiseringar och bygga samt tolka regressionsmodeller.
+
+Det svåraste var att jämföra olika modeller och motivera valen på ett fördjupat sätt.
+
+Jag anser att min inlämning motsvarar VG, eftersom jag har uppfyllt alla grundkrav och även gjort en mer utvecklad analys med modelljämförelser och reflektion kring styrkor och svagheter.

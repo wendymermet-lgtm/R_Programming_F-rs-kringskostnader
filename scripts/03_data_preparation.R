@@ -50,10 +50,22 @@ df_insurance %>%
 ## saknade data:
 # - 28 bmi
 # - 22 Exercise_level
-# - 20 annual_checkups
+
+#We are keeping annual check ups and replacing it with the most frequent as the variable don't have a big impact in the result.
 
 df_insurance <- df_insurance %>%
-  drop_na(bmi, exercise_level, annual_checkups)
+  drop_na(bmi, exercise_level)
+
+df_insurance <- df_insurance %>%
+  drop_na(bmi, exercise_level) %>%
+  mutate(
+    annual_checkups= ifelse(
+      is.na(annual_checkups),
+      as.numeric(names(sort(table(annual_checkups), decreasing = TRUE)[1])),
+      annual_checkups
+    )
+  )
+
 
 glimpse(df_insurance)
 
